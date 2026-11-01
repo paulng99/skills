@@ -38,15 +38,37 @@ Use written words, not the spoken ones:
 
 A caption may cover several spoken clips when they form one sentence. Split a long caption into separate complete sentences, and divide that time window by character count. Keep a line short enough for two rows on a 1280-wide frame. Burn with `Microsoft JhengHei`. Dates, if any, use `yyyy-mm-dd`.
 
-## Pipeline
+## Program
 
-PowerShell cannot use `&&`. Run steps separately.
+The program is [scripts/dub.py](scripts/dub.py). Run that file. Do not write a new one-off script for each video. Install its dependencies once from [requirements.txt](requirements.txt):
 
-1. Download the original-language video with `yt-dlp` at 720p plus the original audio, merged to mp4. A 10-minute 720p file stays under a typical upload limit; this free path does not upload it.
-2. YouTube timedtext often returns an empty body. Transcribe the extracted 16 kHz mono wav locally with `faster-whisper` `small.en`. PyAV 19 rejects `metadata_errors`. Before `transcribe`, replace `av.open` with a wrapper that drops that keyword.
-3. Group the transcript into windows of about 9 seconds. Translate those windows twice: a spoken line and, separately, the written sentence or sentences.
-4. Synthesize, fit, and mix the spoken clips into one wav. Replace the original audio.
-5. Burn the written SRT. Deliver the mp4 path and say that the voice is a standard Cantonese voice, not the original speaker, and that the mouth does not move with the new speech.
+```
+python -m pip install -r requirements.txt
+```
+
+PowerShell cannot use `&&`. Run each command separately. `WORK` is an empty working directory.
+
+```
+python scripts/dub.py download URL --workdir WORK
+python scripts/dub.py transcribe --workdir WORK --language en
+python scripts/dub.py group --workdir WORK
+```
+
+`download` saves a 720p mp4 and a 16 kHz wav. YouTube captions are often empty, so `transcribe` uses local Whisper. `group` writes `chunks.json`, windows of about 9 seconds.
+
+Write `cues.json` from those windows. Each item has both texts:
+
+```json
+{"start": 0.05, "end": 8.25, "spoken": "口語", "written": "完整句子。"}
+```
+
+`end` is the end of that window, usually the next item's `start`. `written` is one or more complete sentences. Then render:
+
+```
+python scripts/dub.py render --workdir WORK --cues cues.json --out OUT.mp4
+```
+
+The default voice is `zh-HK-WanLungNeural`. For a female presenter pass `--voice zh-HK-HiuMaanNeural`. Deliver the mp4 path and say that the voice is a standard Cantonese voice, not the original speaker, and that the mouth does not move with the new speech.
 
 ## Check
 
